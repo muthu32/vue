@@ -7340,13 +7340,7 @@
       // component v-model doesn't need extra runtime
       return false
     } else {
-      warn$1(
-        "<" + (el.tag) + " v-model=\"" + value + "\">: " +
-        "v-model is not supported on this element type. " +
-        'If you are working with contenteditable, it\'s recommended to ' +
-        'wrap a library dedicated for that purpose inside a custom component.',
-        el.rawAttrsMap['v-model']
-      );
+      genCEModel(el, value, modifiers);
     }
 
     // ensure runtime directive metadata
@@ -7464,6 +7458,33 @@
     if (trim || number) {
       addHandler(el, 'blur', '$forceUpdate()');
     }
+  }
+                     
+function genCEModel (
+    el,
+    value,
+    modifiers
+  ) { 
+    var ref = modifiers || {};
+    var number = ref.number;
+    var trim = ref.trim;
+    var event = 'input';
+      var valueBinding = getBindingAttr(el, 'value') || 'null';
+
+    var valueExpression = '$event.target.innerText';
+    if (trim) {
+      valueExpression = "$event.target.innerText.trim()";
+    }
+    if (number) {
+      valueExpression = "_n(" + valueExpression + ")";
+    }
+//turnoff domprop update
+var code = '$event.target.dataset.cmp=0;';
+    code += genAssignmentCode(value, valueExpression);
+     addProp(el, 'innerText', ("(" + value + ")"));
+//enable contentEdiatable
+    addProp(el, 'contentEditable', 'true');
+    addHandler(el, event, code, null, true);
   }
 
   /*  */
@@ -7618,8 +7639,15 @@
           elm.removeChild(elm.childNodes[0]);
         }
       }
-
-      if (key === 'value' && elm.tagName !== 'PROGRESS') {
+      if(elm.isContentEditable)
+              {
+      if(elm.dataset['cmp']!=='0')
+      {
+        elm[key] = cur; 
+      }
+      elm.dataset['cmp']=1;
+              }
+      else if (key === 'value' && elm.tagName !== 'PROGRESS') {
         // store value as _value as well since
         // non-string values will be stringified
         elm._value = cur;
