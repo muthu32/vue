@@ -6994,12 +6994,7 @@
       // component v-model doesn't need extra runtime
       return false
     } else {
-      warn$1(
-        "<" + (el.tag) + " v-model=\"" + value + "\">: " +
-        "v-model is not supported on this element type. " +
-        'If you are working with contenteditable, it\'s recommended to ' +
-        'wrap a library dedicated for that purpose inside a custom component.'
-      );
+      genCEModel(el, value, modifiers);
     }
 
     // ensure runtime directive metadata
@@ -7117,7 +7112,34 @@
       addHandler(el, 'blur', '$forceUpdate()');
     }
   }
+function genCEModel (
+    el,
+    value,
+    modifiers
+  ) { 
+    var ref = modifiers || {};
+    var number = ref.number;
+    var trim = ref.trim;
+    var event = 'input';
+      var valueBinding = getBindingAttr(el, 'value') || 'null';
 
+    var valueExpression = '$event.target.innerText';
+    if (trim) {
+      valueExpression = "$event.target.innerText.trim()";
+    }
+    if (number) {
+      valueExpression = "_n(" + valueExpression + ")";
+    }
+//turnoff domprop update
+var code = '$event.target.dataset.disableDomProps=1;';
+    code += genAssignmentCode(value, valueExpression);
+    addProp(el, 'innerText', ("(" + value + ")"));
+//turnon domprop update
+    addHandler(el, 'blur', '$event.target.dataset.disableDomProps=0;');
+//enable contentEdiatable
+    addProp(el, 'contentEditable', 'true');
+    addHandler(el, event, code, null, true);   
+  }
   /*  */
 
   // normalize v-model event tokens that can only be determined at runtime.
@@ -7207,6 +7229,7 @@
     }
     var key, cur;
     var elm = vnode.elm;
+    if(elm.dataset['disableDomProps']==='1'){return;}
     var oldProps = oldVnode.data.domProps || {};
     var props = vnode.data.domProps || {};
     // clone observed objects, as the user probably wants to mutate it
